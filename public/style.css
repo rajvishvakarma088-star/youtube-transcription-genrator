@@ -19,6 +19,10 @@
 .download-section{position:relative;max-width:1100px;margin:0 auto;padding:90px 24px;text-align:center}
 .download-section h2{font-size:clamp(34px,4vw,49px);line-height:1.14;letter-spacing:-.055em;margin:13px 0 14px}
 .download-card{margin:38px auto 0;text-align:left;padding:26px;border:1px solid #fff;border-radius:22px;background:#ffffffbc;box-shadow:0 14px 38px #4e688012}
+.download-mode-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+.download-mode-switch{margin:0}
+.download-mode-switch button:disabled{opacity:.45;cursor:not-allowed}
+.download-mode-help{color:#718094;font-size:12px;line-height:1.4}
 .download-connection{display:inline-flex;align-items:center;border-radius:100px;padding:8px 12px;background:#fff1ee;color:#a8564d;font-size:12px;font-weight:650}
 .download-connection.connected{background:#edf8ef;color:#4b8c5c}
 .download-notice{margin:12px 0 0;padding:11px 13px;border:1px solid #e4eaf0;border-radius:12px;background:#f8fafc;color:#596779;font-size:12px;line-height:1.5}
