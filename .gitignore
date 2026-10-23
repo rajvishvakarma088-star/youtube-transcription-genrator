@@ -1,5 +1,6 @@
 .vercel/
 node_modules/
+.venv/
 outputs/
 work/
 .env

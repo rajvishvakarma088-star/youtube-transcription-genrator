@@ -1,0 +1,12 @@
+name = "youtube-transcription-media"
+main = "worker.js"
+compatibility_date = "2026-10-23"
+
+[vars]
+FRONTEND_ORIGIN = "https://youtube-transcription-generator.vercel.app"
+# Set BACKEND_URL with: npx wrangler secret put BACKEND_URL
+# Set BACKEND_SHARED_SECRET with: npx wrangler secret put BACKEND_SHARED_SECRET
+# For R2, add a MEDIA_BUCKET binding after creating a bucket:
+# [[r2_buckets]]
+# binding = "MEDIA_BUCKET"
+# bucket_name = "your-private-media-bucket"

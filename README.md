@@ -24,14 +24,6 @@ The Translate control uses compact, open-source OPUS translation models in a bro
 
 ## Media downloader
 
-The downloader uses a local companion because Vercel functions cannot persist long-running download jobs or save files into a visitor's device folder. Start it on the computer where you use the website:
+The cloud downloader uses the existing Vercel frontend, a Cloudflare Worker, a Python yt-dlp service, and optional Cloudflare R2 temporary storage. It previews public media and exact available formats, supports up to 5 GiB per file, and streams direct HTTP formats without saving the whole file on the server. Merged and converted formats use temporary disk and optional R2 storage. See [cloud backend setup](cloud_backend/README.md) for deployment, storage, limits, and costs.
 
-```sh
-./start-downloader.sh
-```
-
-On macOS, install FFmpeg with `brew install ffmpeg` to enable audio conversion and merged video formats. The first run installs yt-dlp into an isolated environment in `work/`. The companion listens only on `127.0.0.1:8765`, accepts requests only from this app's local origins and the production domain, and saves to `~/Downloads/YouTube Transcription Generator`.
-
-Paste up to 10 public URLs, inspect the available items, choose a listed exact quality for each, and start the batch. The UI shows size when the source provides it, progress, pause/resume, cancellation, and clear errors. MP3 conversion is lossy; M4A may also require conversion. The downloader does not use cookies or credentials, does not access private posts, and never substitutes a lower format if the selected format disappears. Individual site extractors can break when a platform changes; yt-dlp should be updated when needed.
-
-When using the Vercel website in Chrome or Edge, click **Connect local downloader** and allow the site's loopback network request. This permission lets the website talk only to the companion on your own computer. The site waits for your click before requesting access.
+Set `CLOUD_DOWNLOADER_URL` on Vercel after deploying the Worker. Until cloud mode is configured, the original local companion remains available through `./start-downloader.sh` for existing users. Neither mode bypasses private content or platform restrictions. Use only media you are authorized to save.

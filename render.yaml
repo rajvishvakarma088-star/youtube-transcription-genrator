@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: youtube-transcription-media
+    runtime: docker
+    plan: free
+    dockerContext: .
+    dockerfilePath: ./cloud_backend/Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: BACKEND_SHARED_SECRET
+        sync: false
+      - key: MEDIA_TEMP_DIR
+        value: /tmp/media
+      - key: MEDIA_TTL_SECONDS
+        value: "3600"
+      - key: MEDIA_WORKERS
+        value: "2"

@@ -1,0 +1,6 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1
+boto3>=1.35,<2
+yt-dlp==2026.10.21
+imageio-ffmpeg==0.6.0

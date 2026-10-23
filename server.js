@@ -7,6 +7,11 @@ const root = path.resolve('public');
 const mime = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
 const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url,'http://localhost');
+  if(u.pathname==='/api/media-config'){
+    const url=process.env.CLOUD_DOWNLOADER_URL||'';
+    res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
+    res.end(JSON.stringify({base:/^https:\/\/[^/]+$/.test(url)?url:null}));return;
+  }
   if(u.pathname==='/api/transcript'){
     const id=videoId(u.searchParams.get('url')||''); if(!id){res.writeHead(400,{'content-type':'application/json'});res.end(JSON.stringify({error:'Enter a valid YouTube video URL.'}));return}
     try{const data=await captions(id,u.searchParams.get('lang'));res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify(data))}catch(e){res.writeHead(502,{'content-type':'application/json'});res.end(JSON.stringify({error:e.message}))}return;
