@@ -107,6 +107,38 @@ class DownloaderTests(unittest.TestCase):
                 del server.JOBS[job_id]
         self.assertEqual(job["state"], "cancelled")
 
+    def test_retries_transient_merge_failure_without_changing_quality(self):
+        attempts = []
+        class FakeYoutubeDL:
+            def __init__(self, options):
+                self.options = options
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def download(self, urls):
+                attempts.append((self.options["format"], urls))
+                self.options["progress_hooks"][0]({"status": "finished"})
+                if len(attempts) == 1:
+                    raise IndexError("list index out of range")
+                return 0
+        job_id = "c" * 32
+        job = {"id": job_id, "url": "https://www.youtube.com/watch?v=example", "index": 1,
+               "is_playlist": False, "choice": {"format": "v1080+a1", "kind": "video"},
+               "title": "Example", "kind": "video", "state": "queued", "progress": 0,
+               "downloadedBytes": 0, "totalBytes": None, "speed": None, "eta": None,
+               "error": None, "resume": threading.Event(), "cancel": threading.Event()}
+        job["resume"].set()
+        with tempfile.TemporaryDirectory() as folder, patch.object(server, "SAVE_DIR", Path(folder)), patch.object(server.yt_dlp, "YoutubeDL", FakeYoutubeDL):
+            server.JOBS[job_id] = job
+            try:
+                server.run_job(job_id)
+            finally:
+                del server.JOBS[job_id]
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(attempts[0], attempts[1])
+        self.assertEqual(job["state"], "completed")
+
 
 if __name__ == "__main__":
     unittest.main()
