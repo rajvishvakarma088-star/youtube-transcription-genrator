@@ -86,6 +86,11 @@ def cleanup():
             for key in list(INSPECTIONS):
                 if now - INSPECTIONS[key]['created'] > 1200:
                     del INSPECTIONS[key]
+            active = set(JOBS)
+        # A restart can leave files on a persistent disk with no in-memory job.
+        for folder in TEMP.iterdir():
+            if folder.is_dir() and folder.name not in active and now - folder.stat().st_mtime > TTL:
+                shutil.rmtree(folder, ignore_errors=True)
 
 
 @app.on_event('startup')
@@ -131,6 +136,13 @@ def extract(url):
         return ydl.extract_info(validate_url(url), download=False)
 
 
+def extraction_error(error):
+    message = str(error).lower()
+    if 'sign in to confirm' in message or 'cookies' in message or 'login required' in message:
+        return 'This platform is blocking automated access from the cloud server. Private or restricted media cannot be downloaded.'
+    return f'This public URL could not be inspected: {str(error)[:250]}'
+
+
 @app.get('/health')
 def health():
     return {'ok': True, 'maxBytes': MAX_BYTES, 'storage': 'r2' if os.getenv('R2_BUCKET') else 'temporary', 'extractor': yt_dlp.version.__version__}
@@ -144,7 +156,7 @@ def inspect(data: InspectInput, request: Request):
     except ValueError as error:
         raise HTTPException(400, str(error)) from error
     except yt_dlp.utils.DownloadError as error:
-        raise HTTPException(422, f'This public URL could not be inspected: {str(error)[:250]}') from error
+        raise HTTPException(422, extraction_error(error)) from error
     if not info:
         raise HTTPException(422, 'No public media was found at that URL.')
     items = []
@@ -268,7 +280,7 @@ def run_job(job_id):
     except Exception as error:
         with LOCK:
             job['state'] = 'cancelled' if job['cancel'].is_set() else 'error'
-            job['error'] = None if job['cancel'].is_set() else str(error)[:350]
+            job['error'] = None if job['cancel'].is_set() else extraction_error(error) if isinstance(error, yt_dlp.utils.DownloadError) else str(error)[:350]
         shutil.rmtree(folder, ignore_errors=True)
 
 
@@ -299,7 +311,8 @@ def create_jobs(data: JobsInput, request: Request):
             job = {'id': job_id, 'owner': client, 'url': inspection['url'], 'index': item['index'],
                    'is_playlist': inspection['is_playlist'], 'choice': choice, 'entry': item['_entry'], 'title': item['title'], 'kind': choice['kind'],
                    'state': 'queued', 'progress': 0, 'downloadedBytes': 0, 'totalBytes': choice.get('size'),
-                   'size': choice.get('size'), 'error': None, 'created': time.time(), 'cancel': threading.Event()}
+                   'size': choice.get('size'), 'error': None, 'created': time.time(),
+                   'source_created': inspection['created'], 'cancel': threading.Event()}
             JOBS[job_id] = job
             jobs.append(job)
     for job in jobs:
@@ -392,7 +405,7 @@ def serve_file(job_id: str, request: Request):
     job['created'] = time.time()
     if job.get('direct'):
         try:
-            fmt = inspect_selected(job)
+            fmt = selected_format(job['entry'], job['choice']['format']) if time.time() - job['source_created'] < 1200 else inspect_selected(job)
             source = safe_source(fmt['url'])
             headers = {k: v for k, v in (fmt.get('http_headers') or {}).items() if k.lower() in ('user-agent', 'referer', 'accept', 'accept-language')}
             headers['Accept-Encoding'] = 'identity'
@@ -426,7 +439,7 @@ def serve_file(job_id: str, request: Request):
             pass_headers['Accept-Ranges'] = 'bytes'
             return StreamingResponse(chunks(), status_code=response.status_code, headers=pass_headers, media_type='application/octet-stream')
         except (ValueError, yt_dlp.utils.DownloadError) as error:
-            raise HTTPException(502, str(error)[:250]) from error
+            raise HTTPException(502, extraction_error(error)) from error
     if job.get('storage') == 'r2':
         raise HTTPException(409, 'Cloudflare Worker serves this R2 file.')
     path = Path(job['path'])

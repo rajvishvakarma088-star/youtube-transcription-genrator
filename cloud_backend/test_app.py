@@ -29,6 +29,11 @@ class CloudBackendTests(unittest.TestCase):
         response = self.client.get('/jobs', headers={'X-Client-ID': CLIENT_ID})
         self.assertEqual(response.status_code, 403)
 
+    def test_platform_bot_wall_has_clear_message(self):
+        message = media.extraction_error(Exception('Sign in to confirm you are not a bot. Use cookies'))
+        self.assertIn('blocking automated access', message)
+        self.assertNotIn('cookies', message)
+
     def test_range_streams_only_requested_bytes_and_checks_owner(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'clip.bin'

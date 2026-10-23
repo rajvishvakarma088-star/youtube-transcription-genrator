@@ -7,4 +7,4 @@ COPY downloader /app/downloader
 COPY cloud_backend /app/cloud_backend
 ENV PYTHONUNBUFFERED=1 MEDIA_TEMP_DIR=/tmp/media
 EXPOSE 8080
-CMD ["uvicorn", "cloud_backend.app:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["sh", "-c", "uvicorn cloud_backend.app:app --host 0.0.0.0 --port ${PORT:-8080}"]
