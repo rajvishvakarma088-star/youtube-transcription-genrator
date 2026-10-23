@@ -132,12 +132,14 @@ def safe_source(url):
 
 
 def extract(url):
-    with yt_dlp.YoutubeDL(ydl_options(noplaylist=False, playlistend=20, verbose=True, no_warnings=False)) as ydl:
+    with yt_dlp.YoutubeDL(ydl_options(noplaylist=False, playlistend=20)) as ydl:
         return ydl.extract_info(validate_url(url), download=False)
 
 
 def extraction_error(error):
     message = str(error).lower()
+    if '[youtube]' in message and 'failed to extract any player response' in message:
+        return 'YouTube is refusing requests from this cloud server. This video cannot be inspected here right now; the file size is not the problem.'
     if 'sign in to confirm' in message or 'cookies' in message or 'login required' in message:
         return 'This platform is blocking automated access from the cloud server. Private or restricted media cannot be downloaded.'
     return f'This public URL could not be inspected: {str(error)[:250]}'

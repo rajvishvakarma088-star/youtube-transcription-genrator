@@ -34,6 +34,11 @@ class CloudBackendTests(unittest.TestCase):
         self.assertIn('blocking automated access', message)
         self.assertNotIn('cookies', message)
 
+    def test_youtube_cloud_restriction_has_clear_message(self):
+        message = media.extraction_error(Exception('ERROR: [youtube] h3mMpyCSgAg: Failed to extract any player response'))
+        self.assertIn('refusing requests from this cloud server', message)
+        self.assertNotIn('report this issue', message)
+
     def test_range_streams_only_requested_bytes_and_checks_owner(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'clip.bin'

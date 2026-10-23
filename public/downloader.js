@@ -47,7 +47,7 @@
   async function connection() {
     try {
       await api('/health');
-      $('#downloader-connection').textContent = 'Cloud downloader ready · No installation needed';
+      $('#downloader-connection').textContent = 'Cloud downloader connected · No installation needed';
       $('#downloader-connection').classList.add('connected');
       $('#downloader-setup').classList.add('hidden');
       $('#connect-downloader').classList.add('hidden');
