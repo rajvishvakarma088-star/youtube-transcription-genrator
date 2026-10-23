@@ -132,7 +132,7 @@ def safe_source(url):
 
 
 def extract(url):
-    with yt_dlp.YoutubeDL(ydl_options(noplaylist=False, playlistend=20)) as ydl:
+    with yt_dlp.YoutubeDL(ydl_options(noplaylist=False, playlistend=20, verbose=True, no_warnings=False)) as ydl:
         return ydl.extract_info(validate_url(url), download=False)
 
 
