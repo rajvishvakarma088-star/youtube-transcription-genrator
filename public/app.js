@@ -1,5 +1,16 @@
 const $ = s => document.querySelector(s);
 let current = null, mode = 'captions', editing = false, showTimes = false, selected = new Set(), worker = null, audioUrl = null, requestNumber = 0;
+let translationWorker = null, translationRequest = 0;
+const translationLanguages = [
+  ['en','English'],['hi','Hindi'],['es','Spanish'],['fr','French'],['de','German'],['pt','Portuguese'],
+  ['ar','Arabic'],['zh','Chinese'],['ja','Japanese'],['ru','Russian'],['it','Italian'],['nl','Dutch'],
+  ['id','Indonesian'],['vi','Vietnamese'],['uk','Ukrainian'],['sv','Swedish'],
+];
+for (const [code,name] of translationLanguages) {
+  $('#source-language').add(new Option(name,code));
+  $('#target-language').add(new Option(name,code));
+}
+$('#target-language').value = 'hi';
 function idFromUrl(value) { try { const u = new URL(value); if (!['youtube.com','www.youtube.com','m.youtube.com','youtu.be','www.youtu.be'].includes(u.hostname)) return null; return u.hostname.includes('youtu.be') ? u.pathname.slice(1) : u.searchParams.get('v') || u.pathname.match(/\/(shorts|embed|live)\/([^/]+)/)?.[2]; } catch { return null; } }
 function time(s) { return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
 function fullText() { return editing ? $('#editor').value : (current?.segments || []).map(s => `${showTimes ? '['+time(s.start)+'] ' : ''}${s.text}`).join('\n'); }
@@ -36,12 +47,13 @@ function render() {
   box.classList.toggle('no-times', !showTimes); renderSummary();
 }
 function prepareResult(kind) {
-  requestNumber++; worker?.terminate(); worker = null; current = null; editing = false;
+  requestNumber++; translationRequest++; worker?.terminate(); worker = null; translationWorker?.terminate(); translationWorker = null; current = null; editing = false;
   $('#editor').classList.add('hidden'); $('#lines').classList.remove('hidden'); $('#edit').textContent = 'Edit text';
   $('#lines').replaceChildren(); $('#result').classList.remove('hidden'); $('#result').scrollIntoView({behavior:'smooth'});
   $('#status').textContent = kind === 'local' ? 'Reading audio…' : 'Loading transcript…';
   $('#player').classList.toggle('hidden', kind === 'local'); $('#audio-player').classList.toggle('hidden', kind !== 'local');
-  $('#author-row').classList.toggle('hidden', kind === 'local'); $('#translate').classList.toggle('hidden', kind === 'local'); $('#language').classList.add('hidden');
+  $('#author-row').classList.toggle('hidden', kind === 'local'); $('#caption-language').classList.toggle('hidden', kind === 'local'); $('#language').classList.add('hidden');
+  $('#translation-controls').classList.add('hidden'); $('#show-original').classList.add('hidden'); $('#translate-now').disabled = false;
   $('#player-label').textContent = kind === 'local' ? 'Audio player' : 'Video player';
   if (kind === 'local') $('#player').src = '';
   else { $('#audio-player').pause(); $('#audio-player').removeAttribute('src'); if (audioUrl) URL.revokeObjectURL(audioUrl); audioUrl = null; }
@@ -53,7 +65,8 @@ async function loadCaptions(url, lang = '') {
   try {
     const r = await fetch(`/api/transcript?url=${encodeURIComponent(url)}&lang=${encodeURIComponent(lang)}`); const data = await r.json();
     if (!r.ok) throw Error(data.error || 'Could not load transcript'); if (request !== requestNumber) return;
-    current = {...data, kind:'captions', url}; $('#status').textContent = '';
+    current = {...data, kind:'captions', url, originalSegments:data.segments.map(s => ({...s})), isTranslated:false}; $('#status').textContent = '';
+    $('#source-language').value = translationLanguages.some(([code]) => code === data.language?.split('-')[0]) ? data.language.split('-')[0] : 'en';
     $('#video-title').textContent = `Transcript of ${data.title}`; $('#author-link').textContent = data.author; $('#author-link').href = data.authorUrl || '#';
     $('#like-link').href = `https://youtu.be/${id}`; $('#share-link').href = `mailto:?subject=${encodeURIComponent(data.title)}&body=${encodeURIComponent(url)}`;
     const selector = $('#language'); selector.replaceChildren(new Option('Original language',''));
@@ -82,7 +95,7 @@ async function loadLocal(file) {
       const {type,message,segments} = event.data;
       if (type === 'progress') $('#status').textContent = message;
       if (type === 'error') { $('#status').textContent = message; worker.terminate(); worker = null; }
-      if (type === 'done') { current = {kind:'local',segments,title:file.name}; $('#status').textContent = ''; render(); worker.terminate(); worker = null; }
+      if (type === 'done') { current = {kind:'local',segments,originalSegments:segments.map(s => ({...s})),isTranslated:false,title:file.name}; $('#source-language').value = 'en'; $('#status').textContent = ''; render(); worker.terminate(); worker = null; }
     };
     worker.onerror = () => { if (request === requestNumber) $('#status').textContent = 'The browser could not load the transcription model. Check your connection and try again.'; worker?.terminate(); worker = null; };
     worker.postMessage({audio}, [audio.buffer]);
@@ -91,7 +104,31 @@ async function loadLocal(file) {
 $('#captions-mode').onclick = () => setMode('captions'); $('#local-mode').onclick = () => setMode('local');
 $('#hero-form').onsubmit = e => { e.preventDefault(); if (mode === 'local') loadLocal($('#audio-file').files[0]); else loadCaptions($('#video-url').value); };
 $('#language').onchange = e => current?.kind === 'captions' && loadCaptions(current.url,e.target.value);
-$('#translate').onclick = () => { $('#language').classList.toggle('hidden'); if (!$('#language').classList.contains('hidden')) $('#language').focus(); };
+$('#caption-language').onclick = () => { $('#language').classList.toggle('hidden'); if (!$('#language').classList.contains('hidden')) $('#language').focus(); };
+$('#translate').onclick = () => { if (!current) return; $('#translation-controls').classList.toggle('hidden'); if (!$('#translation-controls').classList.contains('hidden')) $('#target-language').focus(); };
+$('#translate-now').onclick = () => {
+  if (!current || $('#translate-now').disabled) return;
+  const source = $('#source-language').value, target = $('#target-language').value;
+  if (source === target) { $('#status').textContent = 'Choose a different target language.'; return; }
+  if (editing) $('#edit').click();
+  const input = (current.isTranslated ? current.originalSegments : current.segments).map(s => ({...s}));
+  current.originalSegments = input;
+  const requestId = ++translationRequest;
+  $('#translate-now').disabled = true;
+  $('#show-original').textContent = 'Cancel translation'; $('#show-original').classList.remove('hidden');
+  $('#status').textContent = 'Loading translation model…';
+  translationWorker ||= new Worker('/translation-worker.js', {type:'module'});
+  translationWorker.onmessage = event => {
+    if (requestId !== translationRequest) return;
+    const {type,message,segments} = event.data;
+    if (type === 'progress') $('#status').textContent = message;
+    if (type === 'error') { $('#status').textContent = message; $('#translate-now').disabled = false; $('#show-original').textContent = 'Show original'; $('#show-original').classList.toggle('hidden', !current.isTranslated); translationWorker.terminate(); translationWorker = null; }
+    if (type === 'done') { current.segments = segments; current.isTranslated = true; $('#status').textContent = ''; $('#translate-now').disabled = false; $('#show-original').textContent = 'Show original'; render(); }
+  };
+  translationWorker.onerror = () => { if (requestId === translationRequest) { $('#status').textContent = 'The translation model could not load. Check your connection and device memory.'; $('#translate-now').disabled = false; $('#show-original').textContent = 'Show original'; $('#show-original').classList.toggle('hidden', !current.isTranslated); } translationWorker?.terminate(); translationWorker = null; };
+  translationWorker.postMessage({segments:input,source,target,requestId});
+};
+$('#show-original').onclick = () => { if (!current) return; translationRequest++; translationWorker?.terminate(); translationWorker = null; current.segments = current.originalSegments.map(s => ({...s})); current.isTranslated = false; $('#status').textContent = ''; $('#translate-now').disabled = false; $('#show-original').textContent = 'Show original'; $('#show-original').classList.add('hidden'); render(); };
 $('#copy').onclick = async () => { await navigator.clipboard.writeText(fullText()); $('#copy').textContent = 'Copied!'; setTimeout(() => $('#copy').textContent = 'Copy',1500); };
 $('#edit').onclick = () => { if (!current) return; editing = !editing; $('#editor').classList.toggle('hidden',!editing); $('#lines').classList.toggle('hidden',editing); $('#edit').textContent = editing ? 'Done editing' : 'Edit text'; if (editing) $('#editor').value = fullText(); else { current.segments = $('#editor').value.split('\n').map((text,i) => ({start:current.segments[i]?.start||0,text})); render(); } };
 $('#timestamps').onclick = () => { showTimes = !showTimes; $('#timestamps').textContent = showTimes ? 'Timestamp ON' : 'Timestamp OFF'; $('#lines').classList.toggle('no-times',!showTimes); };
