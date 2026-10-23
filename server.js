@@ -8,7 +8,7 @@ const mime = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8
 const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url,'http://localhost');
   if(u.pathname==='/api/media-config'){
-    const url=process.env.CLOUD_DOWNLOADER_URL||'';
+    const url=process.env.CLOUD_DOWNLOADER_URL||'https://youtube-transcription-media.rajvishvakarma088.workers.dev';
     res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'});
     res.end(JSON.stringify({base:/^https:\/\/[^/]+$/.test(url)?url:null}));return;
   }
