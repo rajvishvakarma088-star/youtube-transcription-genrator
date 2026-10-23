@@ -8,6 +8,7 @@
     return;
   }
   const base = config.base.replace(/\/$/, '');
+  $('#cloud-youtube-notice')?.classList.remove('hidden');
   const clientId = localStorage.getItem('media-client-id') || crypto.randomUUID();
   localStorage.setItem('media-client-id', clientId);
   const inspections = new Map();

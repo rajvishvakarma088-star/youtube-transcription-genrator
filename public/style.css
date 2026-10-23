@@ -21,6 +21,8 @@
 .download-card{margin:38px auto 0;text-align:left;padding:26px;border:1px solid #fff;border-radius:22px;background:#ffffffbc;box-shadow:0 14px 38px #4e688012}
 .download-connection{display:inline-flex;align-items:center;border-radius:100px;padding:8px 12px;background:#fff1ee;color:#a8564d;font-size:12px;font-weight:650}
 .download-connection.connected{background:#edf8ef;color:#4b8c5c}
+.download-notice{margin:12px 0 0;padding:11px 13px;border:1px solid #e4eaf0;border-radius:12px;background:#f8fafc;color:#596779;font-size:12px;line-height:1.5}
+.download-notice a{color:#365b83;text-decoration:underline}
 .download-setup{font-size:13px;line-height:1.7;color:#68778a}.download-setup code{padding:3px 6px;border-radius:6px;background:#eaf0f7;overflow-wrap:anywhere}
 .download-card>label{display:block;margin:20px 0 8px;color:#5c697a;font-size:12px;font-weight:700}
 #download-urls{display:block;width:100%;min-height:95px;resize:vertical;border:1px solid #dce5ee;border-radius:13px;padding:13px;color:#293749;background:#fbfdff;font-size:13px;line-height:1.5}
