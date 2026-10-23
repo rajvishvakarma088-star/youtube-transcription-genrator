@@ -8,9 +8,11 @@ const downloader = (() => {
   async function api(path, method = 'GET', body) {
     const response = await fetch(base + path, {
       method,
+      mode: 'cors',
+      targetAddressSpace: 'loopback',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
-      signal: AbortSignal.timeout(method === 'GET' ? 5000 : path === '/inspect' ? 120000 : 15000),
+      signal: AbortSignal.timeout(path === '/health' ? 30000 : path === '/inspect' ? 120000 : 15000),
     });
     const data = await response.json();
     if (!response.ok) throw Error(data.error || 'The local downloader could not complete this request.');
@@ -24,12 +26,14 @@ const downloader = (() => {
       $('#downloader-connection').textContent = `Ready · Files save to ${saveFolder}`;
       $('#downloader-connection').classList.add('connected');
       $('#downloader-setup').classList.add('hidden');
+      $('#connect-downloader').classList.add('hidden');
       if (!data.audioConversion) $('#download-message').textContent = 'Install FFmpeg and FFprobe to enable MP3/M4A conversion and merged video formats.';
       return true;
     } catch {
-      $('#downloader-connection').textContent = 'Local downloader is offline';
+      $('#downloader-connection').textContent = 'Local downloader is offline or browser access was denied';
       $('#downloader-connection').classList.remove('connected');
       $('#downloader-setup').classList.remove('hidden');
+      $('#connect-downloader').classList.remove('hidden');
       return false;
     }
   }
@@ -164,6 +168,21 @@ const downloader = (() => {
 
   $('#inspect-media').onclick = inspect;
   $('#start-downloads').onclick = startDownloads;
-  connection().then(online => { if (online) updateJobs(); });
+  $('#connect-downloader').onclick = async () => { if (await connection()) updateJobs(); };
+  (async () => {
+    if (['localhost', '127.0.0.1'].includes(location.hostname)) {
+      if (await connection()) updateJobs();
+      return;
+    }
+    let permission = 'prompt';
+    try { permission = (await navigator.permissions.query({ name: 'loopback-network' })).state; } catch {}
+    if (permission === 'granted') {
+      if (await connection()) updateJobs();
+    } else {
+      $('#downloader-connection').textContent = permission === 'denied' ? 'Allow local connection in your browser settings' : 'Connect your local downloader';
+      $('#downloader-setup').classList.remove('hidden');
+      $('#connect-downloader').classList.remove('hidden');
+    }
+  })();
   return { inspect, connection };
 })();
