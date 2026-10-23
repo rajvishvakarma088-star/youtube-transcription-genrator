@@ -79,7 +79,7 @@ def ydl_options(**extra) -> dict:
     options = {
         "quiet": True, "no_warnings": True, "skip_download": True,
         "noplaylist": False, "playlistend": 20, "socket_timeout": 20,
-        "retries": 2, "extractor_retries": 2,
+        "retries": 5, "fragment_retries": 10, "extractor_retries": 3,
         "ffmpeg_location": ffmpeg_directory(),
         "nocheckcertificate": False,
         "ignoreerrors": False,
@@ -234,17 +234,16 @@ def run_job(job_id: str):
             try:
                 with yt_dlp.YoutubeDL(options) as ydl:
                     result = ydl.download([job["url"]])
-            except IndexError as error:
-                # yt-dlp can raise an IndexError after both streams finish when
-                # FFmpeg exits without an error message. Retrying reuses the
-                # downloaded streams and keeps the exact selected quality.
-                if choice["kind"] != "video" or "+" not in choice["format"] or job["state"] != "processing":
+            except IndexError:
+                # yt-dlp can raise an IndexError during a stream download or
+                # final merge. Retry the same exact format using saved data.
+                if choice["kind"] != "video" or "+" not in choice["format"]:
                     raise
                 try:
                     with yt_dlp.YoutubeDL(options) as ydl:
                         result = ydl.download([job["url"]])
                 except IndexError as retry_error:
-                    raise RuntimeError("The video and audio downloaded, but merging them failed. Check FFmpeg and retry the download.") from retry_error
+                    raise RuntimeError("The selected video streams could not be finished. Try the same quality again; no lower quality was downloaded.") from retry_error
             if result:
                 raise ValueError("The selected quality is no longer available. Inspect the URL again; no lower quality was downloaded.")
             with LOCK:
